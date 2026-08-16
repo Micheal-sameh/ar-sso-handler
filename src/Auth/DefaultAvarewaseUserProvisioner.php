@@ -43,6 +43,6 @@ class DefaultAvarewaseUserProvisioner implements ProvisionsAvarewaseUsers
             return $user;
         }
 
-        return $model->newQuery()->create($attributes);
+        return $model->newQuery()->forceCreate($attributes);
     }
 }
