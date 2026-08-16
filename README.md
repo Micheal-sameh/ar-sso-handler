@@ -49,7 +49,7 @@ Then run the installer:
 php artisan avarewase-sso:install
 ```
 
-This publishes `config/avarewase-sso.php`, the users-table migration, and the login-button view; appends the `AVAREWASE_SSO_*` variables to `.env` (and `.env.example` if present, skipping either if the variables are already there); and offers to run `php artisan migrate` for you.
+This publishes `config/avarewase-sso.php`, the users-table migration, and the login-button view; appends the `AVAREWASE_SSO_*` variables to `.env` (and `.env.example` if present, skipping either if the variables are already there); inserts `<x-avarewase-sso::login-button />` into `resources/views/auth/login.blade.php` or `resources/views/login.blade.php` if one exists (idempotent — safe to re-run, and it leaves the view alone if it can't find one of those paths or a login link is already there); and offers to run `php artisan migrate` for you.
 
 Prefer to do it by hand, or just want one piece? Each publish step has its own tag:
 
