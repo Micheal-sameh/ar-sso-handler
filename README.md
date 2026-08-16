@@ -12,28 +12,54 @@ Ships:
 
 ## Installation
 
-This package isn't published to Packagist. In a consuming app's `composer.json`, add it as a path or VCS repository:
+This package isn't on Packagist — it's hosted as a private GitHub repo. In a consuming app's `composer.json`, add it as a VCS repository:
 
 ```json
 "repositories": [
-    { "type": "path", "url": "../avarewase-sso-client" }
+    { "type": "vcs", "url": "https://github.com/Micheal-sameh/ar-sso-handler.git" }
 ]
 ```
 
+Since the repo is private, Composer needs a GitHub token once per machine:
+
+```bash
+composer config --global github-oauth.github.com <a-PAT-with-repo-scope>
+```
+
+Then require a tagged release:
+
+```bash
+composer require avarewase/sso-client:^1.0
+```
+
+Working on the package itself alongside a sibling project instead? Use a path repository there for live edits:
+
+```json
+"repositories": [
+    { "type": "path", "url": "../avarewase-sso-client", "options": { "symlink": true } }
+]
+```
 ```bash
 composer require avarewase/sso-client:@dev
 ```
 
-Then publish config, the user-table migration, and the `.env` stub:
+Then run the installer:
+
+```bash
+php artisan avarewase-sso:install
+```
+
+This publishes `config/avarewase-sso.php`, the users-table migration, and the login-button view; appends the `AVAREWASE_SSO_*` variables to `.env` (and `.env.example` if present, skipping either if the variables are already there); and offers to run `php artisan migrate` for you.
+
+Prefer to do it by hand, or just want one piece? Each publish step has its own tag:
 
 ```bash
 php artisan vendor:publish --tag=avarewase-sso-config
 php artisan vendor:publish --tag=avarewase-sso-migrations
-php artisan vendor:publish --tag=avarewase-sso-env
+php artisan vendor:publish --tag=avarewase-sso-views
+php artisan vendor:publish --tag=avarewase-sso-env   # writes .avarewase-sso.env.example instead of touching .env
 php artisan migrate
 ```
-
-`vendor:publish --tag=avarewase-sso-env` writes `.avarewase-sso.env.example` to your app root — copy the vars you need from it into your real `.env` and fill in the client credentials (Laravel can't safely auto-merge into an existing `.env`, so this is a manual step).
 
 ## Configuration
 

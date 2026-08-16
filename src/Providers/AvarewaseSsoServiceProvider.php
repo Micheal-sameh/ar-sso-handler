@@ -4,6 +4,7 @@ namespace Avarewase\SsoClient\Providers;
 
 use Avarewase\SsoClient\Client\AvarewaseClient;
 use Avarewase\SsoClient\Client\PkceGenerator;
+use Avarewase\SsoClient\Console\InstallCommand;
 use Avarewase\SsoClient\Contracts\ProvisionsAvarewaseUsers;
 use Illuminate\Support\ServiceProvider;
 
@@ -58,6 +59,8 @@ class AvarewaseSsoServiceProvider extends ServiceProvider
             $this->publishes([
                 __DIR__.'/../../stubs/avarewase-sso.env.example' => base_path('.avarewase-sso.env.example'),
             ], 'avarewase-sso-env');
+
+            $this->commands([InstallCommand::class]);
         }
     }
 }
