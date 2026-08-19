@@ -50,6 +50,10 @@ class AvarewaseSsoServiceProvider extends ServiceProvider
             $this->publishes([
                 __DIR__.'/../../database/migrations/add_avarewase_columns_to_users_table.php.stub'
                     => database_path('migrations/'.date('Y_m_d_His', time()).'_add_avarewase_columns_to_users_table.php'),
+                __DIR__.'/../../database/migrations/add_avarewase_date_of_birth_to_users_table.php.stub'
+                    => database_path('migrations/'.date('Y_m_d_His', time() + 1).'_add_avarewase_date_of_birth_to_users_table.php'),
+                __DIR__.'/../../database/migrations/add_avarewase_membership_code_to_users_table.php.stub'
+                    => database_path('migrations/'.date('Y_m_d_His', time() + 2).'_add_avarewase_membership_code_to_users_table.php'),
             ], 'avarewase-sso-migrations');
 
             $this->publishes([

@@ -9,8 +9,8 @@ use Illuminate\Contracts\Auth\Authenticatable;
 /**
  * Finds a local user by `avarewase_sub`, falling back to `email`
  * (and backfilling avarewase_sub), or creates one. Expects the user
- * model to have nullable `avarewase_sub` and `avarewase_avatar` columns
- * — see the publishable migration stub.
+ * model to have nullable `avarewase_sub`, `avarewase_avatar`, and
+ * `avarewase_membership_code` columns — see the publishable migration stubs.
  */
 class DefaultAvarewaseUserProvisioner implements ProvisionsAvarewaseUsers
 {
@@ -34,6 +34,8 @@ class DefaultAvarewaseUserProvisioner implements ProvisionsAvarewaseUsers
             'email' => $userInfo->email,
             'avarewase_sub' => $userInfo->sub,
             'avarewase_avatar' => $userInfo->picture,
+            'date_of_birth' => $userInfo->dateOfBirth,
+            'avarewase_membership_code' => $userInfo->membershipCode,
             'email_verified_at' => $userInfo->emailVerified ? now() : null,
         ], fn ($value) => ! is_null($value));
 

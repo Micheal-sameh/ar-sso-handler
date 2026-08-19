@@ -143,6 +143,14 @@ try {
 
 Retry behaviour is configurable via `AVAREWASE_SSO_HTTP_*` env vars (timeout, connect timeout, retry count, retry sleep).
 
+### Date of birth
+
+`AvarewaseUserInfo::$dateOfBirth` and the default provisioner's `users.date_of_birth` column are wired up and ready, but **the sso server does not send this yet** — as of 2026-08-16, `UserDTO::toOidcArray()` on the sso project only returns `sub`/`name`/`email`/`email_verified`/`picture`/`updated_at`. Once that's fixed server-side, this client reads either a `birthdate` key (OIDC-standard claim name) or `date_of_birth` (the sso server's internal DTO naming) from the userinfo response — whichever it ends up shipping, no client change needed. Until then, `dateOfBirth` will just always be `null`.
+
+### Membership code
+
+The sso server includes a `membership_code` key in the `/api/userinfo` response. This client reads it into `AvarewaseUserInfo::$membershipCode`, and the default provisioner saves it to `users.avarewase_membership_code` (nullable, added by the `avarewase-sso-migrations` publish). If a login response omits it, the existing value on the user is left alone rather than being cleared.
+
 ## Testing
 
 ```bash

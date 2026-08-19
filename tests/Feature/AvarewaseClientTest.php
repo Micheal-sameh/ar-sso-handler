@@ -89,5 +89,35 @@ class AvarewaseClientTest extends TestCase
         $this->assertSame('b3f1e2a0', $userInfo->sub);
         $this->assertSame('jane@example.com', $userInfo->email);
         $this->assertTrue($userInfo->emailVerified);
+        $this->assertNull($userInfo->dateOfBirth);
+        $this->assertNull($userInfo->membershipCode);
+    }
+
+    public function test_userinfo_reads_date_of_birth_from_either_key_name(): void
+    {
+        $client = $this->app->make(AvarewaseClient::class);
+
+        Http::fake(['auth.avarewase.test/api/userinfo' => Http::response([
+            'data' => ['sub' => 'a', 'birthdate' => '1990-05-20'],
+        ])]);
+        $this->assertSame('1990-05-20', $client->userInfo('t')->dateOfBirth);
+
+        Http::fake(['auth.avarewase.test/api/userinfo' => Http::response([
+            'data' => ['sub' => 'a', 'date_of_birth' => '1990-05-20'],
+        ])]);
+        $this->assertSame('1990-05-20', $client->userInfo('t')->dateOfBirth);
+    }
+
+    public function test_userinfo_reads_membership_code(): void
+    {
+        Http::fake([
+            'auth.avarewase.test/api/userinfo' => Http::response([
+                'data' => ['sub' => 'a', 'membership_code' => 'MEM-0042'],
+            ]),
+        ]);
+
+        $client = $this->app->make(AvarewaseClient::class);
+
+        $this->assertSame('MEM-0042', $client->userInfo('t')->membershipCode);
     }
 }

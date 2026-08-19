@@ -8,20 +8,19 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (Schema::hasColumn('users', 'avarewase_sub')) {
+        if (Schema::hasColumn('users', 'date_of_birth')) {
             return;
         }
 
         Schema::table('users', function (Blueprint $table) {
-            $table->string('avarewase_sub')->nullable()->unique()->after('id');
-            $table->string('avarewase_avatar')->nullable()->after('avarewase_sub');
+            $table->date('date_of_birth')->nullable()->after('avarewase_avatar');
         });
     }
 
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn(['avarewase_sub', 'avarewase_avatar']);
+            $table->dropColumn('date_of_birth');
         });
     }
 };

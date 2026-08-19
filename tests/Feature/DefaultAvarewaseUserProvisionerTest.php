@@ -32,11 +32,13 @@ class DefaultAvarewaseUserProvisionerTest extends TestCase
             $table->string('email')->nullable();
             $table->string('avarewase_sub')->nullable()->unique();
             $table->string('avarewase_avatar')->nullable();
+            $table->string('avarewase_membership_code')->nullable();
+            $table->date('date_of_birth')->nullable();
             $table->timestamp('email_verified_at')->nullable();
         });
     }
 
-    protected function userInfo(string $sub = 'sub-123', string $email = 'jane@example.com'): AvarewaseUserInfo
+    protected function userInfo(string $sub = 'sub-123', string $email = 'jane@example.com', ?string $dateOfBirth = '1990-05-20', ?string $membershipCode = 'MEM-0042'): AvarewaseUserInfo
     {
         return new AvarewaseUserInfo(
             sub: $sub,
@@ -44,6 +46,8 @@ class DefaultAvarewaseUserProvisionerTest extends TestCase
             email: $email,
             emailVerified: true,
             picture: 'https://auth.avarewase.test/avatar.jpg',
+            dateOfBirth: $dateOfBirth,
+            membershipCode: $membershipCode,
         );
     }
 
@@ -55,6 +59,28 @@ class DefaultAvarewaseUserProvisionerTest extends TestCase
 
         $this->assertSame('sub-123', $user->avarewase_sub);
         $this->assertDatabaseHas('users', ['email' => 'jane@example.com', 'avarewase_sub' => 'sub-123']);
+    }
+
+    public function test_it_saves_date_of_birth_when_present_and_leaves_it_alone_when_absent(): void
+    {
+        $provisioner = new DefaultAvarewaseUserProvisioner(GuardedTestUser::class);
+
+        $user = $provisioner->resolve($this->userInfo(dateOfBirth: '1990-05-20'));
+        $this->assertSame('1990-05-20', $user->date_of_birth->toDateString());
+
+        $provisioner->resolve($this->userInfo(dateOfBirth: null));
+        $this->assertSame('1990-05-20', $user->fresh()->date_of_birth->toDateString());
+    }
+
+    public function test_it_saves_membership_code_when_present_and_leaves_it_alone_when_absent(): void
+    {
+        $provisioner = new DefaultAvarewaseUserProvisioner(GuardedTestUser::class);
+
+        $user = $provisioner->resolve($this->userInfo(membershipCode: 'MEM-0042'));
+        $this->assertSame('MEM-0042', $user->avarewase_membership_code);
+
+        $provisioner->resolve($this->userInfo(membershipCode: null));
+        $this->assertSame('MEM-0042', $user->fresh()->avarewase_membership_code);
     }
 
     public function test_repeat_login_finds_the_same_user_by_sub_instead_of_creating_a_duplicate(): void
