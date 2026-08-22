@@ -79,4 +79,25 @@ return [
         'redirect_after_login' => '/home',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Back-channel logout webhook
+    |--------------------------------------------------------------------------
+    | The SSO calls this route when an admin revokes a user's access, so this
+    | app can invalidate the local session it created at login time — without
+    | it, a revoked SSO token has no effect on an already-logged-in browser
+    | session here. Registered outside the 'web' middleware group: this is a
+    | server-to-server POST with no cookies/CSRF token, authenticated instead
+    | via the signed X-SSO-Signature header (HMAC-SHA256 of the raw JSON body
+    | using AVAREWASE_SSO_LOGOUT_SECRET, revealed once in the SSO admin panel
+    | when you set this client's "Logout Webhook URL" to this route's URL).
+    */
+    'logout_webhook' => [
+        'enabled' => env('AVAREWASE_SSO_LOGOUT_WEBHOOK_ENABLED', true),
+        'path' => env('AVAREWASE_SSO_LOGOUT_WEBHOOK_PATH', 'login/avarewase/logout-webhook'),
+        'name' => 'avarewase.logout-webhook',
+        'middleware' => ['throttle:30,1'],
+        'secret' => env('AVAREWASE_SSO_LOGOUT_SECRET'),
+    ],
+
 ];

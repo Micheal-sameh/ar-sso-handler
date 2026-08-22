@@ -40,6 +40,13 @@ class AvarewaseSsoServiceProvider extends ServiceProvider
             $this->loadRoutesFrom(__DIR__.'/../../routes/avarewase-sso.php');
         }
 
+        // Independent of routes.enabled above: an app may use its own
+        // login/callback controllers (as AR-Eftkad does) while still
+        // wanting this package's logout webhook receiver.
+        if (config('avarewase-sso.logout_webhook.enabled')) {
+            $this->loadRoutesFrom(__DIR__.'/../../routes/avarewase-sso-logout-webhook.php');
+        }
+
         $this->loadViewsFrom(__DIR__.'/../../resources/views', 'avarewase-sso');
 
         if ($this->app->runningInConsole()) {

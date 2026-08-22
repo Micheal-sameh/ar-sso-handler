@@ -151,6 +151,17 @@ Retry behaviour is configurable via `AVAREWASE_SSO_HTTP_*` env vars (timeout, co
 
 The sso server includes a `membership_code` key in the `/api/userinfo` response. This client reads it into `AvarewaseUserInfo::$membershipCode`, and the default provisioner saves it to `users.avarewase_membership_code` (nullable, added by the `avarewase-sso-migrations` publish). If a login response omits it, the existing value on the user is left alone rather than being cleared.
 
+### Back-channel logout
+
+Logging in creates a normal local session (`Auth::guard()->login($user, remember: true)`) that, once established, has no further connection to the SSO access token — revoking a user's access on the SSO does **not** by itself log them out here. To close that gap, the SSO can push a signed logout notification to this app:
+
+1. In the SSO admin panel (`/admin/clients`), set this client's **Logout Webhook URL** to `{APP_URL}/login/avarewase/logout-webhook`, and copy the signing secret it reveals (shown once).
+2. Set `AVAREWASE_SSO_LOGOUT_SECRET` in this app's `.env` to that secret.
+
+From then on, whenever an admin revokes a user's access on the SSO, this app receives a signed `POST` at that route (verified via HMAC-SHA256 over the raw body, header `X-SSO-Signature: sha256=...`), looks the user up by `avarewase_sub`, rotates their `remember_token` (kills the persistent "remember me" cookie), and — if `SESSION_DRIVER=database` — deletes their active session rows so an already-open tab is kicked out on its next request too. With `file`/`cookie` session drivers there's no shared session store to purge, so an open tab is only caught once that session naturally expires; switch to the `database` driver for immediate invalidation.
+
+The webhook route is registered outside the `web` middleware group (no CSRF token, no session) since it's a server-to-server call authenticated by signature. Disable it with `AVAREWASE_SSO_LOGOUT_WEBHOOK_ENABLED=false` if you don't want it.
+
 ## Testing
 
 ```bash
