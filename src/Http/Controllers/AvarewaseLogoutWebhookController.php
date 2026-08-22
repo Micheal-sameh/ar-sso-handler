@@ -2,10 +2,12 @@
 
 namespace Avarewase\SsoClient\Http\Controllers;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -20,6 +22,12 @@ use Illuminate\Support\Str;
  */
 class AvarewaseLogoutWebhookController extends Controller
 {
+    /**
+     * Window a request's `revoked_at` timestamp must fall within, and how
+     * long its `nonce` is remembered to reject replays — see isReplay().
+     */
+    protected const REPLAY_WINDOW_SECONDS = 300;
+
     public function handle(Request $request): Response
     {
         $secret = config('avarewase-sso.logout_webhook.secret');
@@ -46,6 +54,12 @@ class AvarewaseLogoutWebhookController extends Controller
 
         if (! is_string($sub) || $sub === '') {
             return response('', 422);
+        }
+
+        if ($this->isReplay($payload)) {
+            Log::warning('Avarewase SSO logout webhook: stale or replayed request rejected.', ['sub' => $sub]);
+
+            return response('', 409);
         }
 
         $userModel = config('avarewase-sso.user_model');
@@ -75,6 +89,39 @@ class AvarewaseLogoutWebhookController extends Controller
         $expected = 'sha256='.hash_hmac('sha256', $request->getContent(), $secret);
 
         return hash_equals($expected, $header);
+    }
+
+    /**
+     * Rejects a request whose `revoked_at` falls outside a tight window
+     * around now (a captured request replayed later), and — within that
+     * window — a `nonce` seen once already (the same request replayed
+     * again quickly). Cache::add() is atomic, so two identical requests
+     * racing each other can't both slip through.
+     */
+    protected function isReplay(array $payload): bool
+    {
+        $revokedAt = $payload['revoked_at'] ?? null;
+        $nonce = $payload['nonce'] ?? null;
+
+        if (! is_string($revokedAt) || ! is_string($nonce) || $nonce === '') {
+            return true;
+        }
+
+        try {
+            $age = abs(CarbonImmutable::now()->diffInSeconds(CarbonImmutable::parse($revokedAt)));
+        } catch (\Exception $e) {
+            return true;
+        }
+
+        if ($age > self::REPLAY_WINDOW_SECONDS) {
+            return true;
+        }
+
+        return ! Cache::add(
+            'avarewase-sso:logout-webhook:nonce:'.$nonce,
+            true,
+            self::REPLAY_WINDOW_SECONDS,
+        );
     }
 
     /**

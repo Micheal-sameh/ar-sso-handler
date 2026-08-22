@@ -55,7 +55,7 @@ class AvarewaseLogoutWebhookIndependentOfRoutesEnabledTest extends TestCase
             'event' => 'user.access_revoked',
             'client_id' => 'test-client-id',
             'sub' => 'sub-123',
-            'revoked_at' => '2026-08-22T00:00:00+00:00',
+            'revoked_at' => now()->toIso8601String(),
             'nonce' => 'abc123',
         ];
         $body = json_encode($payload);

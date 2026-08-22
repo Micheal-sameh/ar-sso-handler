@@ -43,8 +43,8 @@ class AvarewaseLogoutWebhookControllerTest extends TestCase
             'event' => 'user.access_revoked',
             'client_id' => 'test-client-id',
             'sub' => 'sub-123',
-            'revoked_at' => '2026-08-22T00:00:00+00:00',
-            'nonce' => 'abc123',
+            'revoked_at' => now()->toIso8601String(),
+            'nonce' => \Illuminate\Support\Str::random(16),
         ], $overrides);
     }
 
@@ -126,4 +126,27 @@ class AvarewaseLogoutWebhookControllerTest extends TestCase
         $response->assertStatus(501);
     }
 
+    public function test_it_rejects_a_request_with_a_stale_revoked_at_timestamp(): void
+    {
+        $response = $this->signedPost($this->payload(['revoked_at' => now()->subMinutes(10)->toIso8601String()]));
+
+        $response->assertStatus(409);
+    }
+
+    public function test_it_rejects_the_same_nonce_replayed_a_second_time(): void
+    {
+        GuardedTestUser::query()->forceCreate([
+            'name' => 'Jane',
+            'email' => 'jane@example.com',
+            'avarewase_sub' => 'sub-123',
+        ]);
+
+        $payload = $this->payload();
+
+        $first = $this->signedPost($payload);
+        $second = $this->signedPost($payload);
+
+        $first->assertStatus(204);
+        $second->assertStatus(409);
+    }
 }
