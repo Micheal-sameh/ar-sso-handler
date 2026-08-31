@@ -2,6 +2,8 @@
 
 namespace Avarewase\SsoClient\Http\Controllers;
 
+use Avarewase\SsoClient\Contracts\ProvisionsAvarewaseUsers;
+use Avarewase\SsoClient\DataObjects\AvarewaseUserInfo;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\Request;
@@ -13,33 +15,47 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
- * Receives the SSO's back-channel logout notification (see NotifyClientLogoutJob
- * in the avarewase-sso app) and invalidates whatever local credential this app
- * issued at login time — a session (apps using AvarewaseAuthController) and/or
- * Sanctum API tokens (apps with their own controller calling $user->createToken(),
- * e.g. AR-Eftkad). Without this, revoking a user's access/token on the SSO has
- * no effect on an already-authenticated session or a previously issued API token.
+ * Receives the SSO's back-channel webhook (see NotifyClientLogoutJob and
+ * NotifyClientUserUpdatedJob in the avarewase-sso app), both posted to the
+ * same client-configured URL and distinguished by the `event` field:
+ *
+ * - `user.access_revoked`: invalidates whatever local credential this app
+ *   issued at login time — a session (apps using AvarewaseAuthController)
+ *   and/or Sanctum API tokens (apps with their own controller calling
+ *   $user->createToken(), e.g. AR-Eftkad). Without this, revoking a user's
+ *   access/token on the SSO has no effect on an already-authenticated
+ *   session or a previously issued API token.
+ * - `user.updated`: refreshes the local user's cached profile fields when an
+ *   admin edits them on the SSO, instead of waiting for the user's next
+ *   login. The payload carries the same OIDC-shaped fields as /api/userinfo
+ *   (see AvarewaseUserInfo), since this app has no stored access token to
+ *   fetch them with itself.
  */
 class AvarewaseLogoutWebhookController extends Controller
 {
     /**
-     * Window a request's `revoked_at` timestamp must fall within, and how
-     * long its `nonce` is remembered to reject replays — see isReplay().
+     * Window a request's timestamp (`revoked_at` / `updated_at`) must fall
+     * within, and how long its `nonce` is remembered to reject replays — see
+     * isReplay().
      */
     protected const REPLAY_WINDOW_SECONDS = 300;
+
+    public function __construct(protected ProvisionsAvarewaseUsers $provisioner)
+    {
+    }
 
     public function handle(Request $request): Response
     {
         $secret = config('avarewase-sso.logout_webhook.secret');
 
         if (! $secret) {
-            Log::warning('Avarewase SSO logout webhook received but AVAREWASE_SSO_LOGOUT_SECRET is not configured — ignoring.');
+            Log::warning('Avarewase SSO webhook received but AVAREWASE_SSO_LOGOUT_SECRET is not configured — ignoring.');
 
             return response('', 501);
         }
 
         if (! $this->hasValidSignature($request, $secret)) {
-            Log::warning('Avarewase SSO logout webhook: invalid signature.');
+            Log::warning('Avarewase SSO webhook: invalid signature.');
 
             return response('', 401);
         }
@@ -56,25 +72,31 @@ class AvarewaseLogoutWebhookController extends Controller
             return response('', 422);
         }
 
-        if ($this->isReplay($payload)) {
-            Log::warning('Avarewase SSO logout webhook: stale or replayed request rejected.', ['sub' => $sub]);
+        $timestamp = $payload['revoked_at'] ?? $payload['updated_at'] ?? null;
+
+        if ($this->isReplay($timestamp, $payload['nonce'] ?? null)) {
+            Log::warning('Avarewase SSO webhook: stale or replayed request rejected.', ['sub' => $sub]);
 
             return response('', 409);
         }
+
+        $event = $payload['event'] ?? 'user.access_revoked';
 
         $userModel = config('avarewase-sso.user_model');
 
         /** @var (\Illuminate\Database\Eloquent\Model&Authenticatable)|null $user */
         $user = $userModel::query()->where('avarewase_sub', $sub)->first();
 
-        if ($user) {
+        if ($user && $event === 'user.updated') {
+            $this->provisioner->resolve(AvarewaseUserInfo::fromResponse($payload));
+        } elseif ($user) {
             $this->revokeSanctumTokens($user);
             $this->invalidateLocalSession($user);
         }
 
         // 204 whether or not a matching local user was found: the caller
         // (the SSO) shouldn't be able to distinguish "unknown sub" from
-        // "logged out successfully" — and either way there's nothing left to do.
+        // "handled successfully" — and either way there's nothing left to do.
         return response('', 204);
     }
 
@@ -92,23 +114,21 @@ class AvarewaseLogoutWebhookController extends Controller
     }
 
     /**
-     * Rejects a request whose `revoked_at` falls outside a tight window
-     * around now (a captured request replayed later), and — within that
-     * window — a `nonce` seen once already (the same request replayed
-     * again quickly). Cache::add() is atomic, so two identical requests
-     * racing each other can't both slip through.
+     * Rejects a request whose timestamp (`revoked_at` or `updated_at`,
+     * depending on event) falls outside a tight window around now (a
+     * captured request replayed later), and — within that window — a
+     * `nonce` seen once already (the same request replayed again quickly).
+     * Cache::add() is atomic, so two identical requests racing each other
+     * can't both slip through.
      */
-    protected function isReplay(array $payload): bool
+    protected function isReplay(?string $timestamp, ?string $nonce): bool
     {
-        $revokedAt = $payload['revoked_at'] ?? null;
-        $nonce = $payload['nonce'] ?? null;
-
-        if (! is_string($revokedAt) || ! is_string($nonce) || $nonce === '') {
+        if (! is_string($timestamp) || ! is_string($nonce) || $nonce === '') {
             return true;
         }
 
         try {
-            $age = abs(CarbonImmutable::now()->diffInSeconds(CarbonImmutable::parse($revokedAt)));
+            $age = abs(CarbonImmutable::now()->diffInSeconds(CarbonImmutable::parse($timestamp)));
         } catch (\Exception $e) {
             return true;
         }

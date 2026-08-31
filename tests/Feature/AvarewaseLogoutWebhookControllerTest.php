@@ -32,6 +32,7 @@ class AvarewaseLogoutWebhookControllerTest extends TestCase
             $table->id();
             $table->string('name')->nullable();
             $table->string('email')->nullable();
+            $table->timestamp('email_verified_at')->nullable();
             $table->string('avarewase_sub')->nullable()->unique();
             $table->string('remember_token')->nullable();
         });
@@ -148,5 +149,42 @@ class AvarewaseLogoutWebhookControllerTest extends TestCase
 
         $first->assertStatus(204);
         $second->assertStatus(409);
+    }
+
+    public function test_a_user_updated_event_refreshes_the_local_profile_without_logging_the_user_out(): void
+    {
+        $user = GuardedTestUser::query()->forceCreate([
+            'name' => 'Jane',
+            'email' => 'jane@example.com',
+            'avarewase_sub' => 'sub-123',
+            'remember_token' => 'unchanged-token',
+        ]);
+
+        $response = $this->signedPost($this->payload([
+            'event' => 'user.updated',
+            'updated_at' => now()->toIso8601String(),
+            'revoked_at' => null,
+            'name' => 'Jane Doe',
+            'email' => 'jane.doe@example.com',
+            'email_verified' => true,
+        ]));
+
+        $response->assertStatus(204);
+
+        $fresh = $user->fresh();
+        $this->assertSame('Jane Doe', $fresh->name);
+        $this->assertSame('jane.doe@example.com', $fresh->email);
+        $this->assertSame('unchanged-token', $fresh->remember_token);
+    }
+
+    public function test_it_rejects_a_user_updated_event_with_a_stale_updated_at_timestamp(): void
+    {
+        $response = $this->signedPost($this->payload([
+            'event' => 'user.updated',
+            'updated_at' => now()->subMinutes(10)->toIso8601String(),
+            'revoked_at' => null,
+        ]));
+
+        $response->assertStatus(409);
     }
 }
