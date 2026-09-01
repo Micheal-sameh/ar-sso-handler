@@ -56,6 +56,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Resource-server middleware (avarewase.auth)
+    |--------------------------------------------------------------------------
+    | How long (seconds) a validated Bearer token's userinfo response is
+    | cached, keyed by a hash of the token. Applies to apps using the
+    | Avarewase\SsoClient\Http\Middleware\AuthenticateWithSso middleware
+    | instead of session login — i.e. apps acting as an OAuth2 resource
+    | server rather than doing the redirect/callback flow themselves.
+    */
+    'cache_ttl' => (int) env('AVAREWASE_SSO_USERINFO_CACHE_TTL', 60),
+
+    /*
+    |--------------------------------------------------------------------------
     | User provisioning
     |--------------------------------------------------------------------------
     | Class responsible for turning a userinfo payload into a local

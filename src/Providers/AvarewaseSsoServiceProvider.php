@@ -36,6 +36,11 @@ class AvarewaseSsoServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        $this->app['router']->aliasMiddleware(
+            'avarewase.auth',
+            \Avarewase\SsoClient\Http\Middleware\AuthenticateWithSso::class,
+        );
+
         if (config('avarewase-sso.routes.enabled')) {
             $this->loadRoutesFrom(__DIR__.'/../../routes/avarewase-sso.php');
         }
