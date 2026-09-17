@@ -7,9 +7,9 @@ class AvarewaseUserInfo
     public function __construct(
         public readonly string $sub,
         public readonly ?string $name,
-        public readonly ?string $email,
         public readonly bool $emailVerified,
         public readonly ?string $picture,
+        public readonly ?string $email = null,
         public readonly ?string $dateOfBirth = null,
         public readonly ?string $membershipCode = null,
         public readonly array $raw = [],

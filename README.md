@@ -51,6 +51,8 @@ php artisan avarewase-sso:install
 
 This publishes `config/avarewase-sso.php`, the users-table migration, and the login-button view; appends the `AVAREWASE_SSO_*` variables to `.env` (and `.env.example` if present, skipping either if the variables are already there); inserts `<x-avarewase-sso::login-button />` into `resources/views/auth/login.blade.php` or `resources/views/login.blade.php` if one exists (idempotent — safe to re-run, and it leaves the view alone if it can't find one of those paths or a login link is already there); and offers to run `php artisan migrate` for you.
 
+The users-table migration also makes `users.email` nullable, since an Avarewase SSO account isn't required to have one — without this, logging in with such an account fails with a database error the moment the provisioner tries to create the local user. On Laravel 10 this column change requires `doctrine/dbal` (`composer require doctrine/dbal`); Laravel 11+ doesn't need it.
+
 Prefer to do it by hand, or just want one piece? Each publish step has its own tag:
 
 ```bash

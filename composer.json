@@ -17,7 +17,8 @@
         "spatie/laravel-medialibrary": "^10.0|^11.0"
     },
     "suggest": {
-        "spatie/laravel-medialibrary": "Store the SSO profile picture in the user's `avatar` media collection instead of only the avarewase_avatar URL column."
+        "spatie/laravel-medialibrary": "Store the SSO profile picture in the user's `avatar` media collection instead of only the avarewase_avatar URL column.",
+        "doctrine/dbal": "Required on Laravel 10 to run the published migration that makes users.email nullable."
     },
     "autoload": {
         "psr-4": {
